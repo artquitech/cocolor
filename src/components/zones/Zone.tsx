@@ -14,10 +14,18 @@ const Zone: React.FC<ZoneProps> = ({ zone, isPlayerNearby, onActivate }) => {
   const meshRef = useRef<Mesh>(null);
   const [hovered, setHovered] = useState(false);
 
-  // Gentle floating animation
+  // Gentle floating animation + pulsing when nearby
   useFrame((state) => {
     if (meshRef.current) {
       meshRef.current.position.y = zone.position.y + Math.sin(state.clock.elapsedTime) * 0.1;
+
+      // Pulse effect when player is nearby
+      if (isPlayerNearby) {
+        const pulse = Math.sin(state.clock.elapsedTime * 3) * 0.05 + 1;
+        meshRef.current.scale.set(pulse, pulse, pulse);
+      } else {
+        meshRef.current.scale.set(1, 1, 1);
+      }
     }
   });
 

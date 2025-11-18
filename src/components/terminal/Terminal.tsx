@@ -14,7 +14,12 @@ const Terminal: React.FC = () => {
     previousSlide,
     setFocusMode,
     clearLogs,
-    zones
+    zones,
+    startClassSession,
+    endClassSession,
+    nextStep,
+    previousStep,
+    classSession
   } = useAppStore();
 
   const [inputValue, setInputValue] = useState('');
@@ -86,6 +91,12 @@ const Terminal: React.FC = () => {
       addLog('  enter construct - Enter the 3D teaching environment');
       addLog('  clear - Clear terminal');
       addLog('');
+      addLog('Class Sessions:');
+      addLog('  start class "<title>" - Begin a class session');
+      addLog('  end class - End current class session');
+      addLog('  next step - Advance to next class step');
+      addLog('  previous step - Go back to previous step');
+      addLog('');
       addLog('Zones (in Construct):');
       addLog('  list zones - Show all zones in the world');
       addLog('  open zone <id> - Open/activate a zone');
@@ -121,6 +132,83 @@ const Terminal: React.FC = () => {
       setTimeout(() => {
         setMode('construct');
       }, 1000);
+      return;
+    }
+
+    // START CLASS
+    if (mainCmd === 'start' && parts[1] === 'class') {
+      const classTitle = cmd.match(/start class ["'](.+)["']/)?.[1] || 'AI Foundations 101';
+
+      // Define class structure
+      const classSteps = [
+        'Welcome students to the construct',
+        'Walk to the AI Introduction zone',
+        'Open the lesson and review slides',
+        'Move to the Demo Zone for practical examples',
+        'Complete the practice exercise',
+        'Q&A and wrap-up'
+      ];
+
+      // Define zones for this class
+      const classZones = [
+        {
+          id: 'zone_intro_ai',
+          title: 'AI Introduction',
+          position: { x: -5, y: 0, z: -3 },
+          type: 'lesson' as const,
+          payloadId: 'ai_intro_001'
+        },
+        {
+          id: 'zone_demo_1',
+          title: 'Demo Zone',
+          position: { x: 5, y: 0, z: -3 },
+          type: 'video' as const,
+          payloadId: 'demo_video_001'
+        },
+        {
+          id: 'zone_exercise_1',
+          title: 'Practice Exercise',
+          position: { x: 0, y: 0, z: -8 },
+          type: 'exercise' as const,
+          payloadId: 'exercise_001'
+        }
+      ];
+
+      startClassSession(classTitle, classSteps, classZones);
+      addLog('[INFO] Use "next step" to guide through the class');
+      addLog('[INFO] Use "enter construct" to enter the 3D environment');
+      return;
+    }
+
+    // END CLASS
+    if (cmd === 'end class') {
+      if (!classSession.isActive) {
+        addLog('[INFO] No class session currently active');
+        return;
+      }
+      endClassSession();
+      return;
+    }
+
+    // NEXT STEP
+    if (cmd === 'next step') {
+      if (!classSession.isActive) {
+        addLog('[ERROR] No class session active');
+        addLog('Use "start class" to begin a session');
+        return;
+      }
+      nextStep();
+      return;
+    }
+
+    // PREVIOUS STEP
+    if (cmd === 'previous step') {
+      if (!classSession.isActive) {
+        addLog('[ERROR] No class session active');
+        addLog('Use "start class" to begin a session');
+        return;
+      }
+      previousStep();
       return;
     }
 

@@ -12,6 +12,13 @@ export interface LessonRef {
   currentSlide: number;
 }
 
+export interface ClassSession {
+  title: string | null;
+  isActive: boolean;
+  currentStep: number;
+  steps: string[];
+}
+
 export interface PlayerState {
   position: { x: number; y: number; z: number };
   lookingAtZoneId: string | null;
@@ -36,6 +43,9 @@ interface AppState {
   mode: Mode;
   bootProgress: number;
 
+  // Class system
+  classSession: ClassSession;
+
   // Lesson system
   currentLesson: LessonRef;
   focusMode: boolean;
@@ -57,6 +67,12 @@ interface AppState {
   // Mode management
   setMode: (mode: Mode) => void;
   incrementBootProgress: () => void;
+
+  // Class session management
+  startClassSession: (title: string, steps: string[], zones: ZoneDefinition[]) => void;
+  endClassSession: () => void;
+  nextStep: () => void;
+  previousStep: () => void;
 
   // Lesson management
   setCurrentLesson: (lesson: LessonRef) => void;
@@ -90,6 +106,13 @@ interface AppState {
 const initialState = {
   mode: "booting" as Mode,
   bootProgress: 0,
+
+  classSession: {
+    title: null,
+    isActive: false,
+    currentStep: 0,
+    steps: [],
+  },
 
   currentLesson: {
     id: null,
@@ -127,6 +150,64 @@ const useAppStore = create<AppState>((set, get) => ({
   incrementBootProgress: () => set((state) => ({
     bootProgress: Math.min(state.bootProgress + 1, 100)
   })),
+
+  // Class session management
+  startClassSession: (title, steps, zones) => {
+    set({
+      classSession: {
+        title,
+        isActive: true,
+        currentStep: 0,
+        steps
+      },
+      zones,
+      mode: 'classroom'
+    });
+    get().addLog(`[CLASS] Started: ${title}`);
+    get().addLog(`[CLASS] ${steps.length} steps in this session`);
+  },
+
+  endClassSession: () => {
+    const { classSession } = get();
+    set({
+      classSession: {
+        title: null,
+        isActive: false,
+        currentStep: 0,
+        steps: []
+      },
+      mode: 'construct'
+    });
+    get().addLog(`[CLASS] Ended: ${classSession.title}`);
+  },
+
+  nextStep: () => {
+    const { classSession } = get();
+    if (classSession.isActive && classSession.currentStep < classSession.steps.length - 1) {
+      set({
+        classSession: {
+          ...classSession,
+          currentStep: classSession.currentStep + 1
+        }
+      });
+      const nextStepText = classSession.steps[classSession.currentStep + 1];
+      get().addLog(`[STEP ${classSession.currentStep + 2}/${classSession.steps.length}] ${nextStepText}`);
+    }
+  },
+
+  previousStep: () => {
+    const { classSession } = get();
+    if (classSession.isActive && classSession.currentStep > 0) {
+      set({
+        classSession: {
+          ...classSession,
+          currentStep: classSession.currentStep - 1
+        }
+      });
+      const prevStepText = classSession.steps[classSession.currentStep - 1];
+      get().addLog(`[STEP ${classSession.currentStep}/${classSession.steps.length}] ${prevStepText}`);
+    }
+  },
 
   // Lesson management
   setCurrentLesson: (lesson) => {

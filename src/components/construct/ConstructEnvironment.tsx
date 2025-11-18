@@ -9,6 +9,8 @@ import Grid from './Grid';
 import LessonPanel from '../lesson/LessonPanel';
 import Zone from '../zones/Zone';
 import PlayerController from '../player/PlayerController';
+import PlayerAvatar from '../player/PlayerAvatar';
+import ClassHUD from '../ui/ClassHUD';
 import { Terminal as TerminalIcon, Volume2, VolumeX } from 'lucide-react';
 
 const ConstructEnvironment: React.FC = () => {
@@ -113,6 +115,9 @@ const ConstructEnvironment: React.FC = () => {
         {/* Base grid - the white void */}
         <Grid />
 
+        {/* Player Avatar - Phase 4 */}
+        <PlayerAvatar />
+
         {/* Zones - Phase 3 */}
         {zones.map((zone) => (
           <Zone
@@ -125,6 +130,9 @@ const ConstructEnvironment: React.FC = () => {
         {/* Lesson Panel - Phase 2 */}
         <LessonPanel />
       </Canvas>
+
+      {/* Class HUD - Phase 5 */}
+      <ClassHUD />
 
       {/* Focus Mode Overlay */}
       {focusMode && (
