@@ -1,112 +1,205 @@
 import { create } from 'zustand';
 
-export type ConstructState = 'booting' | 'terminal' | 'construct' | 'redpill' | 'whiterabbit';
-export type Environment = 'void' | 'weapons' | 'training' | 'city';
-export type Command = 'help' | 'load weapons' | 'load training' | 'load city' | 'exit construct' | 'redpill' | 'follow white rabbit';
+// ============================================================================
+// TYPES - Teaching Construct System
+// ============================================================================
 
-interface ConstructStore {
-  state: ConstructState;
-  environment: Environment;
-  bootProgress: number;
-  terminalLines: string[];
-  audioEnabled: boolean;
-  glitchEffect: boolean;
-  matrixRain: boolean;
-  cameraPosition: [number, number, number];
-  
-  setState: (state: ConstructState) => void;
-  setEnvironment: (env: Environment) => void;
-  incrementBootProgress: () => void;
-  addTerminalLine: (line: string) => void;
-  clearTerminal: () => void;
-  toggleAudio: () => void;
-  executeCommand: (cmd: Command) => void;
-  setGlitchEffect: (enabled: boolean) => void;
-  setMatrixRain: (enabled: boolean) => void;
-  setCameraPosition: (position: [number, number, number]) => void;
+export type Mode = "idle" | "booting" | "construct" | "classroom";
+
+export interface LessonRef {
+  id: string | null;
+  title: string | null;
+  currentSlide: number;
 }
 
-const useConstructStore = create<ConstructStore>((set, get) => ({
-  state: 'booting',
-  environment: 'void',
+export interface PlayerState {
+  position: { x: number; y: number; z: number };
+  lookingAtZoneId: string | null;
+}
+
+export type ZoneType = "lesson" | "video" | "image" | "exercise";
+
+export interface ZoneDefinition {
+  id: string;
+  title: string;
+  position: { x: number; y: number; z: number };
+  type: ZoneType;
+  payloadId: string; // lesson id, video id, etc.
+}
+
+// ============================================================================
+// STORE INTERFACE
+// ============================================================================
+
+interface AppState {
+  // Core state
+  mode: Mode;
+  bootProgress: number;
+
+  // Lesson system
+  currentLesson: LessonRef;
+  focusMode: boolean;
+
+  // World system
+  zones: ZoneDefinition[];
+  player: PlayerState;
+
+  // Terminal & UI
+  logs: string[];
+  audioEnabled: boolean;
+
+  // Visual effects (keep for transitions)
+  glitchEffect: boolean;
+  matrixRain: boolean;
+
+  // ========== ACTIONS ==========
+
+  // Mode management
+  setMode: (mode: Mode) => void;
+  incrementBootProgress: () => void;
+
+  // Lesson management
+  setCurrentLesson: (lesson: LessonRef) => void;
+  nextSlide: () => void;
+  previousSlide: () => void;
+  setFocusMode: (enabled: boolean) => void;
+
+  // World management
+  setZones: (zones: ZoneDefinition[]) => void;
+  addZone: (zone: ZoneDefinition) => void;
+  setPlayerPosition: (position: { x: number; y: number; z: number }) => void;
+  setLookingAtZone: (zoneId: string | null) => void;
+
+  // Terminal
+  addLog: (message: string) => void;
+  clearLogs: () => void;
+
+  // Audio & Effects
+  toggleAudio: () => void;
+  setGlitchEffect: (enabled: boolean) => void;
+  setMatrixRain: (enabled: boolean) => void;
+
+  // Utility
+  reset: () => void;
+}
+
+// ============================================================================
+// INITIAL STATE
+// ============================================================================
+
+const initialState = {
+  mode: "booting" as Mode,
   bootProgress: 0,
-  terminalLines: [],
+
+  currentLesson: {
+    id: null,
+    title: null,
+    currentSlide: 0,
+  },
+  focusMode: false,
+
+  zones: [] as ZoneDefinition[],
+  player: {
+    position: { x: 0, y: 1.7, z: 5 },
+    lookingAtZoneId: null,
+  },
+
+  logs: [] as string[],
   audioEnabled: true,
+
   glitchEffect: false,
   matrixRain: false,
-  cameraPosition: [0, 1.7, 5],
-  
-  setState: (state) => set({ state }),
-  
-  setEnvironment: (environment) => set({ environment }),
-  
-  incrementBootProgress: () => set((state) => ({ 
-    bootProgress: Math.min(state.bootProgress + 1, 100) 
+};
+
+// ============================================================================
+// STORE IMPLEMENTATION
+// ============================================================================
+
+const useAppStore = create<AppState>((set, get) => ({
+  ...initialState,
+
+  // Mode management
+  setMode: (mode) => {
+    set({ mode });
+    get().addLog(`[MODE] Switched to ${mode}`);
+  },
+
+  incrementBootProgress: () => set((state) => ({
+    bootProgress: Math.min(state.bootProgress + 1, 100)
   })),
-  
-  addTerminalLine: (line) => set((state) => ({ 
-    terminalLines: [...state.terminalLines, line] 
-  })),
-  
-  clearTerminal: () => set({ terminalLines: [] }),
-  
-  toggleAudio: () => set((state) => ({ 
-    audioEnabled: !state.audioEnabled 
-  })),
-  
-  executeCommand: (cmd) => {
-    const { addTerminalLine, setEnvironment, setState } = get();
-    
-    switch (cmd) {
-      case 'help':
-        addTerminalLine('Available commands:');
-        addTerminalLine('> load weapons - Load the weapons rack');
-        addTerminalLine('> load training - Load martial arts training program');
-        addTerminalLine('> load city - Load urban simulation');
-        addTerminalLine('> exit construct - Return to terminal');
-        break;
-        
-      case 'load weapons':
-        addTerminalLine('Loading weapons rack...');
-        setEnvironment('weapons');
-        break;
-        
-      case 'load training':
-        addTerminalLine('Loading martial arts training program...');
-        setEnvironment('training');
-        break;
-        
-      case 'load city':
-        addTerminalLine('Loading urban simulation...');
-        setEnvironment('city');
-        break;
-        
-      case 'exit construct':
-        addTerminalLine('Exiting Construct...');
-        setState('terminal');
-        setEnvironment('void');
-        break;
-        
-      case 'redpill':
-        addTerminalLine('WARNING: System collapse imminent');
-        setState('redpill');
-        break;
-        
-      case 'follow white rabbit':
-        addTerminalLine('Initiating special sequence...');
-        setState('whiterabbit');
-        break;
-        
-      default:
-        addTerminalLine('Command not recognized. Type "help" for available commands.');
+
+  // Lesson management
+  setCurrentLesson: (lesson) => {
+    set({ currentLesson: lesson });
+    if (lesson.id) {
+      get().addLog(`[LESSON] Loaded: ${lesson.title}`);
     }
   },
-  
+
+  nextSlide: () => {
+    const { currentLesson } = get();
+    if (currentLesson.id) {
+      set({
+        currentLesson: {
+          ...currentLesson,
+          currentSlide: currentLesson.currentSlide + 1
+        }
+      });
+      get().addLog(`[SLIDE] Advanced to slide ${currentLesson.currentSlide + 1}`);
+    }
+  },
+
+  previousSlide: () => {
+    const { currentLesson } = get();
+    if (currentLesson.id && currentLesson.currentSlide > 0) {
+      set({
+        currentLesson: {
+          ...currentLesson,
+          currentSlide: currentLesson.currentSlide - 1
+        }
+      });
+      get().addLog(`[SLIDE] Moved back to slide ${currentLesson.currentSlide - 1}`);
+    }
+  },
+
+  setFocusMode: (enabled) => {
+    set({ focusMode: enabled });
+    get().addLog(`[FOCUS] ${enabled ? 'Enabled' : 'Disabled'}`);
+  },
+
+  // World management
+  setZones: (zones) => set({ zones }),
+
+  addZone: (zone) => set((state) => ({
+    zones: [...state.zones, zone]
+  })),
+
+  setPlayerPosition: (position) => set((state) => ({
+    player: { ...state.player, position }
+  })),
+
+  setLookingAtZone: (zoneId) => set((state) => ({
+    player: { ...state.player, lookingAtZoneId: zoneId }
+  })),
+
+  // Terminal
+  addLog: (message) => set((state) => ({
+    logs: [...state.logs, message]
+  })),
+
+  clearLogs: () => set({ logs: [] }),
+
+  // Audio & Effects
+  toggleAudio: () => set((state) => ({
+    audioEnabled: !state.audioEnabled
+  })),
+
   setGlitchEffect: (enabled) => set({ glitchEffect: enabled }),
-  
+
   setMatrixRain: (enabled) => set({ matrixRain: enabled }),
-  
-  setCameraPosition: (position) => set({ cameraPosition: position })
+
+  // Utility
+  reset: () => set(initialState),
 }));
 
-export default useConstructStore;
+export default useAppStore;
