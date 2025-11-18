@@ -13,7 +13,8 @@ const Terminal: React.FC = () => {
     nextSlide,
     previousSlide,
     setFocusMode,
-    clearLogs
+    clearLogs,
+    zones
   } = useAppStore();
 
   const [inputValue, setInputValue] = useState('');
@@ -85,6 +86,11 @@ const Terminal: React.FC = () => {
       addLog('  enter construct - Enter the 3D teaching environment');
       addLog('  clear - Clear terminal');
       addLog('');
+      addLog('Zones (in Construct):');
+      addLog('  list zones - Show all zones in the world');
+      addLog('  open zone <id> - Open/activate a zone');
+      addLog('  Movement: WASD or Arrow Keys');
+      addLog('');
       addLog('Lessons:');
       addLog('  list lessons - Show available lessons');
       addLog('  load lesson <id> - Load a specific lesson');
@@ -115,6 +121,72 @@ const Terminal: React.FC = () => {
       setTimeout(() => {
         setMode('construct');
       }, 1000);
+      return;
+    }
+
+    // LIST ZONES
+    if (cmd === 'list zones') {
+      if (zones.length === 0) {
+        addLog('[INFO] No zones currently in the construct');
+        addLog('Zones will be added when you start a class session');
+        return;
+      }
+
+      addLog('Available Zones:');
+      addLog('');
+      zones.forEach(zone => {
+        addLog(`  ${zone.id}`);
+        addLog(`    ${zone.title}`);
+        addLog(`    Type: ${zone.type}`);
+        addLog(`    Position: (${zone.position.x.toFixed(1)}, ${zone.position.z.toFixed(1)})`);
+        addLog('');
+      });
+      return;
+    }
+
+    // OPEN ZONE
+    if (mainCmd === 'open' && parts[1] === 'zone') {
+      const zoneId = parts.slice(2).join(' ');
+      if (!zoneId) {
+        addLog('[ERROR] Please specify a zone ID');
+        addLog('Usage: open zone <id>');
+        addLog("Try 'list zones' to see available zones");
+        return;
+      }
+
+      const zone = zones.find(z => z.id === zoneId);
+      if (!zone) {
+        addLog(`[ERROR] Zone '${zoneId}' not found`);
+        addLog("Try 'list zones' to see available zones");
+        return;
+      }
+
+      addLog(`[OK] Entering zone: ${zone.title}`);
+
+      // Handle different zone types
+      if (zone.type === 'lesson') {
+        const lesson = getLessonById(zone.payloadId);
+        if (lesson) {
+          setCurrentLesson({
+            id: lesson.id,
+            title: lesson.title,
+            currentSlide: 0
+          });
+          addLog(`[OK] Loaded lesson from zone: ${lesson.title}`);
+        } else {
+          addLog(`[ERROR] Lesson '${zone.payloadId}' not found`);
+        }
+      } else if (zone.type === 'video') {
+        addLog(`[INFO] Video zones not yet implemented`);
+        addLog(`Will play video: ${zone.payloadId}`);
+      } else if (zone.type === 'image') {
+        addLog(`[INFO] Image zones not yet implemented`);
+        addLog(`Will display image: ${zone.payloadId}`);
+      } else if (zone.type === 'exercise') {
+        addLog(`[INFO] Exercise zones not yet implemented`);
+        addLog(`Will load exercise: ${zone.payloadId}`);
+      }
+
       return;
     }
 
