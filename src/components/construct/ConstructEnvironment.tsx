@@ -7,6 +7,7 @@ import {
 } from '@react-three/drei';
 import useAppStore from '../../store/useConstructStore';
 import Grid from './Grid';
+import LessonPanel from '../lesson/LessonPanel';
 import { Terminal as TerminalIcon, Volume2, VolumeX } from 'lucide-react';
 
 const ConstructEnvironment: React.FC = () => {
@@ -14,7 +15,9 @@ const ConstructEnvironment: React.FC = () => {
     mode,
     setMode,
     audioEnabled,
-    toggleAudio
+    toggleAudio,
+    currentLesson,
+    focusMode
   } = useAppStore();
   const [showWelcome, setShowWelcome] = useState(false);
 
@@ -56,21 +59,43 @@ const ConstructEnvironment: React.FC = () => {
         {/* Base grid - the white void */}
         <Grid />
 
+        {/* Lesson Panel - Phase 2 */}
+        <LessonPanel />
+
         {/* Zones and content will be added in Phase 3 */}
       </Canvas>
 
+      {/* Focus Mode Overlay */}
+      {focusMode && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 pointer-events-none z-10 transition-opacity duration-300" />
+      )}
+
       {/* UI Overlay */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 text-gray-900 font-mono">
-        {showWelcome && (
+      <div className="fixed bottom-0 left-0 right-0 p-4 text-gray-900 font-mono z-20">
+        {showWelcome && !currentLesson.id && (
           <div className="p-4 bg-black bg-opacity-80 text-green-500 max-w-md mx-auto rounded-lg">
             <p className="mb-2 text-lg">Welcome to the Teaching Construct</p>
             <p className="text-sm mb-3">
               {mode === 'classroom'
-                ? 'Class session active. Zones and lessons will appear here.'
-                : 'This is your 3D learning environment.'}
+                ? 'Class session active. Load a lesson to begin.'
+                : 'Your 3D learning environment is ready.'}
             </p>
+            <p className="text-xs text-green-400 mb-2">
+              Return to terminal to load lessons with commands.
+            </p>
+            <p className="text-xs text-green-600">
+              Try: "list lessons" → "load lesson ai_intro_001" → "enter construct"
+            </p>
+          </div>
+        )}
+
+        {/* Lesson info when loaded */}
+        {currentLesson.id && (
+          <div className="p-3 bg-black bg-opacity-90 text-green-500 max-w-sm mx-auto rounded-lg border border-green-700">
+            <p className="text-xs font-bold mb-1">{currentLesson.title}</p>
             <p className="text-xs text-green-400">
-              Phase 2 will add lessons and zones. Phase 3 will add player movement.
+              Slide {currentLesson.currentSlide + 1} |
+              {focusMode ? ' FOCUS MODE ON' : ' Use "focus on" to dim background'}
             </p>
           </div>
         )}

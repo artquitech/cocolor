@@ -1,12 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 import useAppStore from '../../store/useConstructStore';
 import TypingEffect from '../effects/TypingEffect';
+import { getLessonById, getLessonList } from '../../data/lessons';
 
 const Terminal: React.FC = () => {
   const {
     logs,
     addLog,
-    setMode
+    setMode,
+    setCurrentLesson,
+    currentLesson,
+    nextSlide,
+    previousSlide,
+    setFocusMode,
+    clearLogs
   } = useAppStore();
 
   const [inputValue, setInputValue] = useState('');
@@ -65,27 +72,162 @@ const Terminal: React.FC = () => {
   };
 
   const processCommand = (cmd: string) => {
-    // Basic commands for Phase 1 (will expand in Phase 2)
+    // Parse command and arguments
+    const parts = cmd.split(' ');
+    const mainCmd = parts[0];
+    const args = parts.slice(1).join(' ');
+
+    // HELP
     if (cmd === 'help') {
       addLog('Available commands:');
-      addLog('  help - Show this help message');
+      addLog('');
+      addLog('Navigation:');
       addLog('  enter construct - Enter the 3D teaching environment');
       addLog('  clear - Clear terminal');
       addLog('');
-      addLog('More commands coming in Phase 2...');
+      addLog('Lessons:');
+      addLog('  list lessons - Show available lessons');
+      addLog('  load lesson <id> - Load a specific lesson');
+      addLog('  next slide - Advance to next slide');
+      addLog('  previous slide - Go back to previous slide');
+      addLog('  exit lesson - Close current lesson');
+      addLog('');
+      addLog('Display:');
+      addLog('  focus on - Enable focus mode (dimmed background)');
+      addLog('  focus off - Disable focus mode');
       return;
     }
 
+    // CLEAR
     if (cmd === 'clear') {
-      // Clear logs except welcome message (we'll improve this later)
+      clearLogs();
+      // Re-show welcome message
+      setTimeout(() => {
+        addLog("==== TEACHING CONSTRUCT TERMINAL ====");
+        addLog("Terminal cleared. Type 'help' for commands.");
+      }, 100);
       return;
     }
 
+    // ENTER CONSTRUCT
     if (cmd === 'enter construct') {
       addLog('[OK] Initializing Teaching Construct...');
       setTimeout(() => {
         setMode('construct');
       }, 1000);
+      return;
+    }
+
+    // LIST LESSONS
+    if (cmd === 'list lessons') {
+      addLog('Available Lessons:');
+      addLog('');
+      const lessons = getLessonList();
+      lessons.forEach(lesson => {
+        addLog(`  ${lesson.id}`);
+        addLog(`    ${lesson.title}`);
+        addLog(`    ${lesson.description}`);
+        addLog('');
+      });
+      return;
+    }
+
+    // LOAD LESSON
+    if (mainCmd === 'load' && parts[1] === 'lesson') {
+      const lessonId = parts.slice(2).join(' ');
+      if (!lessonId) {
+        addLog('[ERROR] Please specify a lesson ID');
+        addLog('Usage: load lesson <id>');
+        addLog("Try 'list lessons' to see available lessons");
+        return;
+      }
+
+      const lesson = getLessonById(lessonId);
+      if (!lesson) {
+        addLog(`[ERROR] Lesson '${lessonId}' not found`);
+        addLog("Try 'list lessons' to see available lessons");
+        return;
+      }
+
+      setCurrentLesson({
+        id: lesson.id,
+        title: lesson.title,
+        currentSlide: 0
+      });
+      addLog(`[OK] Loaded lesson: ${lesson.title}`);
+      addLog(`[INFO] ${lesson.slides.length} slides available`);
+      addLog("Use 'next slide' to begin, or 'enter construct' to view in 3D");
+      return;
+    }
+
+    // NEXT SLIDE
+    if (cmd === 'next slide') {
+      if (!currentLesson.id) {
+        addLog('[ERROR] No lesson loaded');
+        addLog("Use 'load lesson <id>' first");
+        return;
+      }
+
+      const lesson = getLessonById(currentLesson.id);
+      if (!lesson) {
+        addLog('[ERROR] Current lesson data not found');
+        return;
+      }
+
+      if (currentLesson.currentSlide >= lesson.slides.length - 1) {
+        addLog('[INFO] Already at last slide');
+        return;
+      }
+
+      nextSlide();
+      const newSlideNum = currentLesson.currentSlide + 1;
+      addLog(`[SLIDE ${newSlideNum + 1}/${lesson.slides.length}] ${lesson.slides[newSlideNum].title}`);
+      return;
+    }
+
+    // PREVIOUS SLIDE
+    if (cmd === 'previous slide') {
+      if (!currentLesson.id) {
+        addLog('[ERROR] No lesson loaded');
+        addLog("Use 'load lesson <id>' first");
+        return;
+      }
+
+      if (currentLesson.currentSlide <= 0) {
+        addLog('[INFO] Already at first slide');
+        return;
+      }
+
+      previousSlide();
+      const lesson = getLessonById(currentLesson.id);
+      if (lesson) {
+        const newSlideNum = currentLesson.currentSlide - 1;
+        addLog(`[SLIDE ${newSlideNum + 1}/${lesson.slides.length}] ${lesson.slides[newSlideNum].title}`);
+      }
+      return;
+    }
+
+    // EXIT LESSON
+    if (cmd === 'exit lesson') {
+      if (!currentLesson.id) {
+        addLog('[INFO] No lesson currently loaded');
+        return;
+      }
+
+      const lessonTitle = currentLesson.title;
+      setCurrentLesson({ id: null, title: null, currentSlide: 0 });
+      addLog(`[OK] Exited lesson: ${lessonTitle}`);
+      return;
+    }
+
+    // FOCUS MODE
+    if (cmd === 'focus on') {
+      setFocusMode(true);
+      return;
+    }
+
+    if (cmd === 'focus off') {
+      setFocusMode(false);
       return;
     }
 
@@ -132,7 +274,14 @@ const Terminal: React.FC = () => {
 
       {/* Hint text */}
       <div className="mt-2 text-xs text-green-700">
-        Type 'enter construct' to enter the Teaching Construct.
+        {currentLesson.id ? (
+          <span>
+            Lesson loaded: {currentLesson.title} | Slide {currentLesson.currentSlide + 1} |
+            Type 'next slide' or 'enter construct'
+          </span>
+        ) : (
+          <span>Type 'help' for commands | 'list lessons' to see available content</span>
+        )}
       </div>
     </div>
   );
