@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>The Matrix Construct</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    <style>
+      :root {
+        --matrix-green: #00FF41;
+      }
+      
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      
+      body {
+        font-family: 'VT323', monospace;
+        background-color: #000;
+        color: var(--matrix-green);
+        overflow: hidden;
+      }
+      
+      .font-mono {
+        font-family: 'VT323', monospace;
+      }
+      
+      /* Custom scrollbar */
+      .scrollbar-thin::-webkit-scrollbar {
+        width: 4px;
+      }
+      
+      .scrollbar-thin::-webkit-scrollbar-track {
+        background: #000;
+      }
+      
+      .scrollbar-thin::-webkit-scrollbar-thumb {
+        background: #006400;
+      }
+      
+      canvas {
+        touch-action: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
