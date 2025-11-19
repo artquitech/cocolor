@@ -10,6 +10,7 @@ import LessonPanel from '../lesson/LessonPanel';
 import Zone from '../zones/Zone';
 import PlayerController from '../player/PlayerController';
 import PlayerAvatar from '../player/PlayerAvatar';
+import OtherPlayers from '../player/OtherPlayers';
 import ClassHUD from '../ui/ClassHUD';
 import { Terminal as TerminalIcon, Volume2, VolumeX } from 'lucide-react';
 
@@ -117,6 +118,9 @@ const ConstructEnvironment: React.FC = () => {
 
         {/* Player Avatar - Phase 4 */}
         <PlayerAvatar />
+
+        {/* Other Players - Multiplayer */}
+        <OtherPlayers />
 
         {/* Zones - Phase 3 */}
         {zones.map((zone) => (

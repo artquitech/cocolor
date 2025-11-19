@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import { Vector3 } from 'three';
 import useAppStore from '../../store/useConstructStore';
+import { socketService } from '../../lib/socket';
 
 interface KeyState {
   forward: boolean;
@@ -11,7 +12,7 @@ interface KeyState {
 }
 
 const PlayerController: React.FC = () => {
-  const { setPlayerPosition, player, zones, setLookingAtZone } = useAppStore();
+  const { setPlayerPosition, player, zones, setLookingAtZone, multiplayer } = useAppStore();
   const { camera } = useThree();
 
   const keyState = useRef<KeyState>({
@@ -24,6 +25,13 @@ const PlayerController: React.FC = () => {
   const velocity = useRef(new Vector3());
   const moveSpeed = 5; // units per second
   const proximityDistance = 3; // distance to detect zones
+
+  // Throttle position updates to server (send every 50ms max)
+  const lastPositionEmit = useRef(0);
+  const positionEmitInterval = 50; // ms
+
+  // Track last looking at zone to avoid redundant emits
+  const lastLookingAtZone = useRef<string | null>(null);
 
   // Keyboard event handlers
   useEffect(() => {
@@ -131,6 +139,15 @@ const PlayerController: React.FC = () => {
         newPosition.y,
         newPosition.z
       );
+
+      // Emit position to server (throttled)
+      if (multiplayer.isConnected) {
+        const now = Date.now();
+        if (now - lastPositionEmit.current > positionEmitInterval) {
+          socketService.emitPlayerMove(newPosition);
+          lastPositionEmit.current = now;
+        }
+      }
     }
 
     // Check proximity to zones
@@ -155,6 +172,12 @@ const PlayerController: React.FC = () => {
     // Update looking at zone if changed
     if (closestZone !== player.lookingAtZoneId) {
       setLookingAtZone(closestZone);
+
+      // Emit zone proximity to server
+      if (multiplayer.isConnected && closestZone !== lastLookingAtZone.current) {
+        socketService.emitLookingAtZone(closestZone);
+        lastLookingAtZone.current = closestZone;
+      }
     }
   };
 

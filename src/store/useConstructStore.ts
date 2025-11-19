@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { socketService, OtherPlayerData as SocketOtherPlayerData } from '../lib/socket';
 
 // ============================================================================
 // TYPES - Teaching Construct System
@@ -34,6 +35,16 @@ export interface ZoneDefinition {
   payloadId: string; // lesson id, video id, etc.
 }
 
+// Multiplayer types
+export interface OtherPlayerData {
+  id: string;
+  name: string;
+  position: { x: number; y: number; z: number };
+  lookingAtZoneId?: string | null;
+  currentLesson?: string | null;
+  currentSlide?: number;
+}
+
 // ============================================================================
 // STORE INTERFACE
 // ============================================================================
@@ -53,6 +64,15 @@ interface AppState {
   // World system
   zones: ZoneDefinition[];
   player: PlayerState;
+
+  // Multiplayer system
+  multiplayer: {
+    isConnected: boolean;
+    roomId: string | null;
+    playerName: string;
+    isTeacher: boolean;
+    otherPlayers: Map<string, OtherPlayerData>;
+  };
 
   // Terminal & UI
   logs: string[];
@@ -85,6 +105,13 @@ interface AppState {
   addZone: (zone: ZoneDefinition) => void;
   setPlayerPosition: (position: { x: number; y: number; z: number }) => void;
   setLookingAtZone: (zoneId: string | null) => void;
+
+  // Multiplayer management
+  joinRoom: (roomId: string, playerName: string, isTeacher: boolean) => void;
+  leaveRoom: () => void;
+  updateOtherPlayer: (playerId: string, data: Partial<OtherPlayerData>) => void;
+  removeOtherPlayer: (playerId: string) => void;
+  setMultiplayerConnected: (connected: boolean) => void;
 
   // Terminal
   addLog: (message: string) => void;
@@ -125,6 +152,14 @@ const initialState = {
   player: {
     position: { x: 0, y: 1.7, z: 5 },
     lookingAtZoneId: null,
+  },
+
+  multiplayer: {
+    isConnected: false,
+    roomId: null,
+    playerName: 'Student',
+    isTeacher: false,
+    otherPlayers: new Map<string, OtherPlayerData>(),
   },
 
   logs: [] as string[],
@@ -214,32 +249,64 @@ const useAppStore = create<AppState>((set, get) => ({
     set({ currentLesson: lesson });
     if (lesson.id) {
       get().addLog(`[LESSON] Loaded: ${lesson.title}`);
+
+      // Emit lesson load to server
+      const { multiplayer } = get();
+      if (multiplayer.isConnected && lesson.id && lesson.title) {
+        socketService.emitLessonLoad({
+          id: lesson.id,
+          title: lesson.title,
+          currentSlide: lesson.currentSlide
+        });
+      }
     }
   },
 
   nextSlide: () => {
-    const { currentLesson } = get();
+    const { currentLesson, multiplayer } = get();
     if (currentLesson.id) {
+      const newSlide = currentLesson.currentSlide + 1;
       set({
         currentLesson: {
           ...currentLesson,
-          currentSlide: currentLesson.currentSlide + 1
+          currentSlide: newSlide
         }
       });
-      get().addLog(`[SLIDE] Advanced to slide ${currentLesson.currentSlide + 1}`);
+      get().addLog(`[SLIDE] Advanced to slide ${newSlide + 1}`);
+
+      // Emit slide change to server
+      if (multiplayer.isConnected) {
+        socketService.emitSlideChange(newSlide);
+
+        // If teacher, broadcast to all students
+        if (multiplayer.isTeacher) {
+          socketService.teacherBroadcastSlide(newSlide);
+        }
+      }
     }
   },
 
   previousSlide: () => {
-    const { currentLesson } = get();
+    const { currentLesson, multiplayer } = get();
     if (currentLesson.id && currentLesson.currentSlide > 0) {
+      const newSlide = currentLesson.currentSlide - 1;
       set({
         currentLesson: {
           ...currentLesson,
-          currentSlide: currentLesson.currentSlide - 1
+          currentSlide: newSlide
         }
       });
-      get().addLog(`[SLIDE] Moved back to slide ${currentLesson.currentSlide - 1}`);
+      get().addLog(`[SLIDE] Moved back to slide ${newSlide + 1}`);
+
+      // Emit slide change to server
+      if (multiplayer.isConnected) {
+        socketService.emitSlideChange(newSlide);
+
+        // If teacher, broadcast to all students
+        if (multiplayer.isTeacher) {
+          socketService.teacherBroadcastSlide(newSlide);
+        }
+      }
     }
   },
 
@@ -278,6 +345,172 @@ const useAppStore = create<AppState>((set, get) => ({
   setGlitchEffect: (enabled) => set({ glitchEffect: enabled }),
 
   setMatrixRain: (enabled) => set({ matrixRain: enabled }),
+
+  // Multiplayer management
+  joinRoom: (roomId, playerName, isTeacher) => {
+    const { player } = get();
+
+    // Connect to socket if not already connected
+    if (!socketService.isConnected()) {
+      socketService.connect();
+    }
+
+    // Setup socket event handlers
+    socketService.on({
+      onConnect: () => {
+        get().setMultiplayerConnected(true);
+        get().addLog('[MULTIPLAYER] Connected to server');
+
+        // Join the room after connection
+        socketService.joinRoom(roomId, playerName, player.position);
+      },
+
+      onDisconnect: () => {
+        get().setMultiplayerConnected(false);
+        get().addLog('[MULTIPLAYER] Disconnected from server');
+      },
+
+      onRoomPlayers: (players) => {
+        // Add all existing players in the room
+        players.forEach(p => {
+          get().updateOtherPlayer(p.id, p);
+        });
+        get().addLog(`[ROOM] ${players.length} other player(s) in room`);
+      },
+
+      onPlayerJoined: (player) => {
+        get().updateOtherPlayer(player.id, player);
+        get().addLog(`[ROOM] ${player.name} joined`);
+      },
+
+      onPlayerLeft: (data) => {
+        get().removeOtherPlayer(data.id);
+        get().addLog(`[ROOM] ${data.name} left`);
+      },
+
+      onPlayerMoved: (data) => {
+        get().updateOtherPlayer(data.id, { position: data.position });
+      },
+
+      onPlayerZoneUpdate: (data) => {
+        get().updateOtherPlayer(data.id, { lookingAtZoneId: data.lookingAtZoneId });
+      },
+
+      onPlayerLessonUpdate: (data) => {
+        get().updateOtherPlayer(data.id, {
+          currentLesson: data.lessonId,
+          currentSlide: data.currentSlide
+        });
+      },
+
+      onPlayerSlideUpdate: (data) => {
+        get().updateOtherPlayer(data.id, { currentSlide: data.currentSlide });
+      },
+
+      onTeacherLessonBroadcast: (lessonData) => {
+        // Student receives teacher's lesson
+        if (!get().multiplayer.isTeacher) {
+          get().setCurrentLesson({
+            id: lessonData.id,
+            title: lessonData.title,
+            currentSlide: lessonData.currentSlide
+          });
+          get().addLog('[TEACHER] Lesson broadcast received');
+        }
+      },
+
+      onTeacherSlideBroadcast: (slideIndex) => {
+        // Student receives teacher's slide change
+        if (!get().multiplayer.isTeacher) {
+          const { currentLesson } = get();
+          get().setCurrentLesson({
+            ...currentLesson,
+            currentSlide: slideIndex
+          });
+          get().addLog(`[TEACHER] Slide changed to ${slideIndex + 1}`);
+        }
+      },
+
+      onRoomInfo: (info) => {
+        get().addLog(`[ROOM] ${info.playerCount} total player(s)`);
+      },
+    });
+
+    // Update local state
+    set((state) => ({
+      multiplayer: {
+        ...state.multiplayer,
+        roomId,
+        playerName,
+        isTeacher,
+      }
+    }));
+
+    get().addLog(`[MULTIPLAYER] Joining room: ${roomId} as ${playerName}`);
+
+    // If already connected, join immediately
+    if (socketService.isConnected()) {
+      socketService.joinRoom(roomId, playerName, player.position);
+    }
+  },
+
+  leaveRoom: () => {
+    socketService.disconnect();
+    set((state) => ({
+      multiplayer: {
+        ...state.multiplayer,
+        isConnected: false,
+        roomId: null,
+        otherPlayers: new Map(),
+      }
+    }));
+    get().addLog('[MULTIPLAYER] Left room');
+  },
+
+  updateOtherPlayer: (playerId, data) => {
+    set((state) => {
+      const newOtherPlayers = new Map(state.multiplayer.otherPlayers);
+      const existing = newOtherPlayers.get(playerId);
+
+      if (existing) {
+        // Update existing player
+        newOtherPlayers.set(playerId, { ...existing, ...data });
+      } else {
+        // Add new player
+        newOtherPlayers.set(playerId, data as OtherPlayerData);
+      }
+
+      return {
+        multiplayer: {
+          ...state.multiplayer,
+          otherPlayers: newOtherPlayers,
+        }
+      };
+    });
+  },
+
+  removeOtherPlayer: (playerId) => {
+    set((state) => {
+      const newOtherPlayers = new Map(state.multiplayer.otherPlayers);
+      newOtherPlayers.delete(playerId);
+
+      return {
+        multiplayer: {
+          ...state.multiplayer,
+          otherPlayers: newOtherPlayers,
+        }
+      };
+    });
+  },
+
+  setMultiplayerConnected: (connected) => {
+    set((state) => ({
+      multiplayer: {
+        ...state.multiplayer,
+        isConnected: connected,
+      }
+    }));
+  },
 
   // Utility
   reset: () => set(initialState),

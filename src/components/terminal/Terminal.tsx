@@ -19,7 +19,10 @@ const Terminal: React.FC = () => {
     endClassSession,
     nextStep,
     previousStep,
-    classSession
+    classSession,
+    multiplayer,
+    joinRoom,
+    leaveRoom
   } = useAppStore();
 
   const [inputValue, setInputValue] = useState('');
@@ -112,6 +115,11 @@ const Terminal: React.FC = () => {
       addLog('Display:');
       addLog('  focus on - Enable focus mode (dimmed background)');
       addLog('  focus off - Disable focus mode');
+      addLog('');
+      addLog('Multiplayer:');
+      addLog('  join room <room-id> [name] [teacher] - Join a multiplayer room');
+      addLog('  leave room - Leave the current room');
+      addLog('  broadcast lesson <id> - (Teacher) Broadcast lesson to students');
       return;
     }
 
@@ -388,6 +396,106 @@ const Terminal: React.FC = () => {
 
     if (cmd === 'focus off') {
       setFocusMode(false);
+      return;
+    }
+
+    // MULTIPLAYER - JOIN ROOM
+    if (mainCmd === 'join' && parts[1] === 'room') {
+      const roomId = parts[2];
+      if (!roomId) {
+        addLog('[ERROR] Please specify a room ID');
+        addLog('Usage: join room <room-id> [name] [teacher]');
+        addLog('Example: join room class101');
+        addLog('Example: join room class101 "John Doe" teacher');
+        return;
+      }
+
+      // Check if already in a room
+      if (multiplayer.isConnected) {
+        addLog('[ERROR] Already connected to a room');
+        addLog('Use "leave room" first to disconnect');
+        return;
+      }
+
+      // Parse optional name (with quotes support)
+      let playerName = 'Student';
+      let isTeacher = false;
+
+      const nameMatch = cmd.match(/join room \w+ ["'](.+?)["']/);
+      if (nameMatch) {
+        playerName = nameMatch[1];
+      } else if (parts[3] && parts[3] !== 'teacher') {
+        playerName = parts[3];
+      }
+
+      // Check for teacher flag
+      if (cmd.includes('teacher')) {
+        isTeacher = true;
+      }
+
+      addLog(`[MULTIPLAYER] Connecting to room: ${roomId}`);
+      addLog(`[MULTIPLAYER] Name: ${playerName}`);
+      addLog(`[MULTIPLAYER] Role: ${isTeacher ? 'Teacher' : 'Student'}`);
+
+      joinRoom(roomId, playerName, isTeacher);
+
+      addLog('[INFO] Joining room... Check logs for connection status');
+      if (isTeacher) {
+        addLog('[INFO] As teacher, you can use "broadcast lesson <id>" to control student views');
+      }
+      return;
+    }
+
+    // MULTIPLAYER - LEAVE ROOM
+    if (cmd === 'leave room') {
+      if (!multiplayer.isConnected && !multiplayer.roomId) {
+        addLog('[INFO] Not currently in a room');
+        return;
+      }
+
+      addLog(`[MULTIPLAYER] Leaving room: ${multiplayer.roomId}`);
+      leaveRoom();
+      return;
+    }
+
+    // MULTIPLAYER - BROADCAST LESSON (Teacher only)
+    if (mainCmd === 'broadcast' && parts[1] === 'lesson') {
+      if (!multiplayer.isConnected) {
+        addLog('[ERROR] Not connected to a multiplayer room');
+        addLog('Use "join room <room-id>" first');
+        return;
+      }
+
+      if (!multiplayer.isTeacher) {
+        addLog('[ERROR] Only teachers can broadcast lessons');
+        return;
+      }
+
+      const lessonId = parts.slice(2).join(' ');
+      if (!lessonId) {
+        addLog('[ERROR] Please specify a lesson ID');
+        addLog('Usage: broadcast lesson <id>');
+        addLog("Try 'list lessons' to see available lessons");
+        return;
+      }
+
+      const lesson = getLessonById(lessonId);
+      if (!lesson) {
+        addLog(`[ERROR] Lesson '${lessonId}' not found`);
+        addLog("Try 'list lessons' to see available lessons");
+        return;
+      }
+
+      // Load lesson locally first
+      setCurrentLesson({
+        id: lesson.id,
+        title: lesson.title,
+        currentSlide: 0
+      });
+
+      addLog(`[TEACHER] Broadcasting lesson to all students: ${lesson.title}`);
+      addLog('[INFO] All students will now see this lesson');
+      addLog('[INFO] Your slide navigation will automatically sync with students');
       return;
     }
 
