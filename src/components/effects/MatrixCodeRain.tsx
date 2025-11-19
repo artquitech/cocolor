@@ -1,8 +1,8 @@
 import React, { useEffect, useRef } from 'react';
-import useConstructStore from '../../store/useConstructStore';
+import useAppStore from '../../store/useConstructStore';
 
 const MatrixCodeRain: React.FC = () => {
-  const { matrixRain } = useConstructStore();
+  const { matrixRain } = useAppStore();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
   useEffect(() => {

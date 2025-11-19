@@ -1,23 +1,23 @@
 import React, { useEffect, useState } from 'react';
-import useConstructStore from '../../store/useConstructStore';
+import useAppStore from '../../store/useConstructStore';
 import TypingEffect from '../effects/TypingEffect';
 
 const BootSequence: React.FC = () => {
-  const { bootProgress, incrementBootProgress, setState } = useConstructStore();
+  const { bootProgress, incrementBootProgress, setMode } = useAppStore();
   const [currentStep, setCurrentStep] = useState(0);
-  
+
   const bootSteps = [
-    "Initializing system...",
-    "Loading core modules...",
+    "Initializing Teaching Construct...",
+    "Loading educational modules...",
     "Establishing neural interface...",
-    "Connecting to mainframe...",
-    "Bypassing security...",
-    "Executing Construct program...",
-    "Preparing digital environment...",
-    "Establishing sensory parameters...",
-    "Ready to load Construct...",
+    "Connecting to knowledge base...",
+    "Preparing learning environment...",
+    "Loading lesson system...",
+    "Initializing zones...",
+    "Establishing player controls...",
+    "Ready to teach...",
   ];
-  
+
   useEffect(() => {
     // Start boot sequence automatically
     const bootInterval = setInterval(() => {
@@ -25,15 +25,15 @@ const BootSequence: React.FC = () => {
         incrementBootProgress();
       } else {
         clearInterval(bootInterval);
-        // Short delay before moving to terminal
+        // Short delay before moving to idle/terminal
         setTimeout(() => {
-          setState('terminal');
+          setMode('idle');
         }, 1000);
       }
     }, 100);
-    
+
     return () => clearInterval(bootInterval);
-  }, [bootProgress, incrementBootProgress, setState]);
+  }, [bootProgress, incrementBootProgress, setMode]);
   
   // Advance to next boot step based on progress
   useEffect(() => {
@@ -49,8 +49,8 @@ const BootSequence: React.FC = () => {
   return (
     <div className="fixed inset-0 bg-black text-green-500 font-mono p-8 flex flex-col">
       <div className="mb-8">
-        <div className="text-2xl mb-4">MATRIX CONSTRUCT PROGRAM</div>
-        <div className="text-sm opacity-80">v1.0.1</div>
+        <div className="text-2xl mb-4">TEACHING CONSTRUCT SYSTEM</div>
+        <div className="text-sm opacity-80">v2.0.0 - Educational Platform</div>
       </div>
       
       {/* Boot messages */}

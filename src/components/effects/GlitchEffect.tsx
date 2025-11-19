@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import useConstructStore from '../../store/useConstructStore';
+import useAppStore from '../../store/useConstructStore';
 
 const GlitchEffect: React.FC = () => {
-  const { glitchEffect } = useConstructStore();
+  const { glitchEffect } = useAppStore();
   const [intensity, setIntensity] = useState(0);
 
   // Randomize glitch effect intensity

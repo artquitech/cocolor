@@ -1,9 +1,9 @@
 import React, { useEffect, useRef } from 'react';
 import { Howl } from 'howler';
-import useConstructStore from '../../store/useConstructStore';
+import useAppStore from '../../store/useConstructStore';
 
 const AudioController: React.FC = () => {
-  const { state, environment, audioEnabled } = useConstructStore();
+  const { mode, audioEnabled } = useAppStore();
   const ambientRef = useRef<Howl | null>(null);
   const effectsRef = useRef<Record<string, Howl>>({});
 
@@ -50,43 +50,27 @@ const AudioController: React.FC = () => {
     };
   }, []);
 
-  // Control ambient sound based on state
+  // Control ambient sound based on mode
   useEffect(() => {
     if (!ambientRef.current) return;
 
-    if (audioEnabled && (state === 'construct' || state === 'terminal')) {
+    if (audioEnabled && (mode === 'construct' || mode === 'classroom' || mode === 'idle')) {
       ambientRef.current.play();
     } else {
       ambientRef.current.pause();
     }
-  }, [state, audioEnabled]);
+  }, [mode, audioEnabled]);
 
-  // Play sound effects based on state changes
+  // Play sound effects based on mode changes
   useEffect(() => {
     if (!audioEnabled || !effectsRef.current) return;
 
-    if (state === 'booting') {
+    if (mode === 'booting') {
       effectsRef.current.boot.play();
-    } else if (state === 'redpill' || state === 'whiterabbit') {
-      effectsRef.current.glitch.play();
-    }
-  }, [state, audioEnabled]);
-
-  // Play sound when environment changes
-  useEffect(() => {
-    if (!audioEnabled || !effectsRef.current) return;
-    
-    if (environment !== 'void' && state === 'construct') {
+    } else if (mode === 'construct' || mode === 'classroom') {
       effectsRef.current.load.play();
-      
-      // Play Morpheus voice line when entering construct
-      if (environment === 'void') {
-        setTimeout(() => {
-          effectsRef.current.morpheus?.play();
-        }, 1000);
-      }
     }
-  }, [environment, state, audioEnabled]);
+  }, [mode, audioEnabled]);
 
   // Helper function to play typing sound (exposed to window for global access)
   useEffect(() => {
